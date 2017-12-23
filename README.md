@@ -67,8 +67,8 @@ Exports the specified account as a private key hex string.
 
 ### encryptPersonalMessage(address, dataHex)
 
-Returns a hex-encoded string encrypted with the account's private key with the ECIES encryption scheme. The message can be decrypted with your private key.
+Receives an account address, and data (encoded as hex) to be encrypted. Returns a hex-encoded string. The message can be decrypted with it's sister function decryptPersonalMessage.
 
 ### decryptPersonalMessage(address, encryptedDataHex)
 
-Returns a hex-encoded string decrypted with your account's private key.
+The inverse of encryptPersonalMessage. Returns a hex-encoded string of the decrypted data.

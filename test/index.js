@@ -2,6 +2,7 @@ const assert = require('assert')
 const extend = require('xtend')
 const HdKeyring = require('../')
 const sigUtil = require('eth-sig-util')
+const eccrypto = require('eccrypto')
 
 // Sample account:
 const privKeyHex = 'b8a9c05beeedb25df85f8d641538cbffedf67216048de9c678ee26260eb91952'
@@ -178,6 +179,64 @@ describe('hd-keyring', function() {
         done()
       }).catch(function (reason) {
         console.error('failed because', reason)
+      })
+    })
+  })
+
+  describe('#encryptPersonalMessage', function() {
+    it('encrypts and decrypts a message', function(done) {
+      const address = firstAcct
+      const msgHex = '68656c6c6f20776f726c64'  //hello world
+
+      keyring.deserialize({
+        mnemonic: sampleMnemonic,
+        numberOfAccounts: 1,
+      })
+      .then(function() {
+        return keyring.encryptPersonalMessage(address, msgHex)
+      })
+      .then(function(encrypted) {
+        return keyring.decryptPersonalMessage(address, encrypted)
+      })
+      .then(function(msg) {
+        assert(msg == msgHex)
+        done()
+      })
+      .catch(function(err) {
+        console.error('failed because', err)
+      })
+    })
+
+    it('fails on a bad private key', function(done) {
+      const msgHex = 'ABC123'
+      let privateKeyBuf = Buffer(31) //key is wrong length
+      privateKeyBuf.fill(5)
+
+      try {
+        keyring._ECIESEncryptMessage(privateKeyBuf, msgHex)
+      }
+      catch (e) {
+        done()
+      }
+    })
+
+    it('fails on wrong private key', function(done) {
+      const msgHex = 'ABC123'
+      let pk1 = Buffer(32)
+      pk1.fill(5)
+
+      let pk2 = Buffer(32)
+      pk2.fill(6)
+
+      keyring._ECIESEncryptMessage(pk1, msgHex)
+      .then(function(encryptedMsg) {
+        return keyring._ECIESDecryptMessage(pk2, encryptedMsg)
+      })
+      .then(function(decryptedMsg) {
+        console.error('failed because', decryptedMsg)
+      })
+      .catch(function(err) {
+        done()
       })
     })
   })

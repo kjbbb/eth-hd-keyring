@@ -3,6 +3,7 @@ const hdkey = require('ethereumjs-wallet/hdkey')
 const bip39 = require('bip39')
 const ethUtil = require('ethereumjs-util')
 const sigUtil = require('eth-sig-util')
+const eccrypto = require('eccrypto')
 
 // Options:
 const hdPathString = `m/44'/60'/0'/0`
@@ -116,6 +117,39 @@ class HdKeyring extends EventEmitter {
     return Promise.resolve(rawMsgSig)
   }
 
+  encryptPersonalMessage (withAccount, msgHex) {
+    const wallet = this._getWalletForAccount(withAccount)
+    const privKey = ethUtil.stripHexPrefix(wallet.getPrivateKey())
+    const privKeyBuffer = new Buffer(privKey, 'hex')
+    const msgBuffer = new Buffer(msgHex, 'hex')
+    return new Promise((resolve, reject) => {
+      this._ECIESEncryptMessage(privKeyBuffer, msgBuffer)
+      .then((msgBuf) => {
+        resolve(msgBuf.toString('hex'))
+      })
+      .catch(function(e) {
+        reject(e)
+      })
+    })
+  }
+
+  decryptPersonalMessage (withAccount, msgHex) {
+    const wallet = this._getWalletForAccount(withAccount)
+    const privKey = ethUtil.stripHexPrefix(wallet.getPrivateKey())
+    const privKeyBuffer = new Buffer(privKey, 'hex')
+    const msgBuffer = new Buffer(msgHex, 'hex')
+
+    return new Promise((resolve, reject) => {
+      this._ECIESDecryptMessage(privKeyBuffer, msgBuffer)
+      .then(function(msgBuf) {
+        resolve(msgBuf.toString('hex'))
+      })
+      .catch(function(e) {
+        reject(e)
+      })
+    })
+  }
+
   exportAccount (address) {
     const wallet = this._getWalletForAccount(address)
     return Promise.resolve(wallet.getPrivateKey().toString('hex'))
@@ -139,6 +173,38 @@ class HdKeyring extends EventEmitter {
       return ((address === targetAddress) ||
               (sigUtil.normalize(address) === targetAddress))
     })
+  }
+
+  _ECIESEncryptMessage(privateKeyBuffer, msgBuffer) {
+    const publicKeyBuffer = eccrypto.getPublic(privateKeyBuffer)
+    return new Promise((resolve, reject) => {
+      eccrypto.encrypt(publicKeyBuffer, msgBuffer, {ephemPrivateKey: privateKeyBuffer})
+      .then(function(encrypted) {
+        let msg = Buffer.concat([
+            new Buffer([0x04]), //parity byte marker
+            encrypted.ephemPublicKey,
+            encrypted.iv,
+            encrypted.ciphertext,
+            encrypted.mac
+          ])
+        resolve(msg)
+      })
+      .catch(function(err) {
+        reject(err)
+      })
+    })
+  }
+
+  _ECIESDecryptMessage(privateKeyBuffer, msgBuffer) {
+    let msg = msgBuffer.slice(1)  //remove parity byte marker
+    let encObj = {
+      ephemPublicKey: msg.slice(0, 65),
+      iv: msg.slice(65, 65 + 16),
+      mac: msg.slice(-32),
+      ciphertext: msg.slice(65 + 16, -32)
+    }
+
+    return eccrypto.decrypt(privateKeyBuffer, encObj)
   }
 }
 

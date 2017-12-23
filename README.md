@@ -65,3 +65,10 @@ The `eth_sign` method will receive the incoming data, alread hashed, and must si
 
 Exports the specified account as a private key hex string.
 
+### encryptPersonalMessage(address, dataHex)
+
+Returns a hex-encoded string encrypted with the account's private key with the ECIES encryption scheme. The message can be decrypted with your private key.
+
+### decryptPersonalMessage(address, encryptedDataHex)
+
+Returns a hex-encoded string decrypted with your account's private key.
